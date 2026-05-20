@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 import os
 import csv
+import re
 import subprocess
 from datetime import date
 
@@ -23,6 +24,7 @@ from core.database import (
     listar_parceiros, buscar_parceiros,
     arquivar_parceiro, atualizar_parceiros_batch,
 )
+from core.validators import formatar_cnpj
 
 COLUNAS = [
     "ID", "Nome", "Nome Fantasia", "CNPJ", "Telefone",
@@ -122,6 +124,9 @@ class JanelaPrincipal(QMainWindow):
 
     def filtrar_parceiros(self):
         texto = self.campo_busca.text()
+        digits = re.sub(r'\D', '', texto)
+        if len(digits) == 14 and not any(c in texto for c in './-'):
+            texto = formatar_cnpj(texto)
         filtro_ativo = self._get_filtro_ativo()
         if texto:
             parceiros = buscar_parceiros(texto, filtro_ativo)

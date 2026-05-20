@@ -6,8 +6,11 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMessageBox,
 )
+import json
+import re
+import urllib.request
 
-from core.validators import validar_cnpj, validar_email, validar_telefone
+from core.validators import validar_cnpj, validar_email, validar_telefone, formatar_cnpj, formatar_telefone
 
 
 class FormParceiroBase(QDialog):
@@ -55,11 +58,51 @@ class FormParceiroBase(QDialog):
 
         self.setLayout(layout)
 
+        self.cnpj.textEdited.connect(self._on_cnpj_edited)
+        self.telefone.textEdited.connect(self._on_telefone_edited)
+        self.cnpj.editingFinished.connect(self._buscar_dados_cnpj)
+
     def _cnpj_label(self):
         return "CNPJ"
 
     def _botao_label(self):
         return "Salvar"
+
+    def _on_cnpj_edited(self, texto):
+        formatado = formatar_cnpj(texto)
+        self.cnpj.blockSignals(True)
+        self.cnpj.setText(formatado)
+        self.cnpj.setCursorPosition(len(formatado))
+        self.cnpj.blockSignals(False)
+
+    def _on_telefone_edited(self, texto):
+        formatado = formatar_telefone(texto)
+        self.telefone.blockSignals(True)
+        self.telefone.setText(formatado)
+        self.telefone.setCursorPosition(len(formatado))
+        self.telefone.blockSignals(False)
+
+    def _buscar_dados_cnpj(self):
+        digits = re.sub(r'\D', '', self.cnpj.text())
+        if len(digits) != 14:
+            return
+        try:
+            url = f"https://brasilapi.com.br/api/cnpj/v1/{digits}"
+            req = urllib.request.Request(url, headers={"User-Agent": "GestorParceiros"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                dados = json.loads(resp.read())
+        except Exception:
+            return
+
+        self.nome.setText(dados.get("razao_social") or "")
+        self.nome_fantasia.setText(dados.get("nome_fantasia") or "")
+        self.cidade.setText(dados.get("municipio") or "")
+        self.email.setText(dados.get("email") or "")
+        self.cep.setText(dados.get("cep") or "")
+        self.telefone.setText(formatar_telefone(dados.get("ddd_telefone_1") or ""))
+        qsa = dados.get("qsa") or []
+        if qsa:
+            self.responsavel.setText(qsa[0].get("nome_socio") or "")
 
     def _validar(self):
         nome = self.nome.text().strip()
