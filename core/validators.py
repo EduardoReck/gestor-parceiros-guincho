@@ -53,3 +53,10 @@ def formatar_telefone(texto):
     if n <= 6:  return f"({digits[:2]}) {digits[2:]}"
     if n <= 10: return f"({digits[:2]}) {digits[2:6]}-{digits[6:]}"
     return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
+
+
+def formatar_cep(texto):
+    digits = re.sub(r'\D', '', texto)[:8]
+    if len(digits) <= 5:
+        return digits
+    return f"{digits[:5]}-{digits[5:]}"

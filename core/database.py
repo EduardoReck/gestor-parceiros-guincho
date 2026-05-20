@@ -6,6 +6,7 @@ DB_PATH = os.path.join("data", "database.db")
 
 _SELECT_COLS = """
     id, nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
+    rua, numero, bairro, complemento,
     inscricao_estadual, responsavel, observacoes
 """
 
@@ -49,6 +50,10 @@ def inicializar_banco():
         ("responsavel", "TEXT DEFAULT ''"),
         ("observacoes", "TEXT DEFAULT ''"),
         ("ativo", "INTEGER DEFAULT 1"),
+        ("rua", "TEXT DEFAULT ''"),
+        ("numero", "TEXT DEFAULT ''"),
+        ("bairro", "TEXT DEFAULT ''"),
+        ("complemento", "TEXT DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE parceiros ADD COLUMN {col} {tipo}")
@@ -91,10 +96,11 @@ def buscar_parceiros(texto, filtro_ativo=1):
         WHERE (
             nome LIKE ? OR nome_fantasia LIKE ? OR cnpj LIKE ?
             OR telefone LIKE ? OR cidade LIKE ? OR email LIKE ?
-            OR cep LIKE ? OR inscricao_estadual LIKE ? OR responsavel LIKE ?
+            OR cep LIKE ? OR rua LIKE ? OR bairro LIKE ?
+            OR inscricao_estadual LIKE ? OR responsavel LIKE ?
         )
         """
-        params = [texto_like] * 9
+        params = [texto_like] * 11
 
         if filtro_ativo is not None:
             query += " AND ativo = ?"
@@ -126,6 +132,7 @@ def buscar_parceiro_por_id(id_parceiro):
 
 
 def adicionar_parceiro(nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
+                       rua='', numero='', bairro='', complemento='',
                        inscricao_estadual='', responsavel='', observacoes=''):
     try:
         conn = conectar()
@@ -133,9 +140,11 @@ def adicionar_parceiro(nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
         cursor.execute("""
             INSERT INTO parceiros
             (nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
+             rua, numero, bairro, complemento,
              inscricao_estadual, responsavel, observacoes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
+              rua, numero, bairro, complemento,
               inscricao_estadual, responsavel, observacoes))
         parceiro_id = cursor.lastrowid
         conn.commit()
@@ -147,6 +156,7 @@ def adicionar_parceiro(nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
 
 
 def atualizar_parceiro(id_parceiro, nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
+                       rua='', numero='', bairro='', complemento='',
                        inscricao_estadual='', responsavel='', observacoes=''):
     try:
         conn = conectar()
@@ -154,9 +164,11 @@ def atualizar_parceiro(id_parceiro, nome, nome_fantasia, cnpj, telefone, cidade,
         cursor.execute("""
         UPDATE parceiros
         SET nome=?, nome_fantasia=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?,
+            rua=?, numero=?, bairro=?, complemento=?,
             inscricao_estadual=?, responsavel=?, observacoes=?
         WHERE id=?
         """, (nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
+              rua, numero, bairro, complemento,
               inscricao_estadual, responsavel, observacoes, id_parceiro))
         conn.commit()
         conn.close()
@@ -175,6 +187,7 @@ def atualizar_parceiros_batch(atualizacoes):
         cursor.executemany("""
         UPDATE parceiros
         SET nome=?, nome_fantasia=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?,
+            rua=?, numero=?, bairro=?, complemento=?,
             inscricao_estadual=?, responsavel=?, observacoes=?
         WHERE id=?
         """, atualizacoes)
@@ -207,3 +220,19 @@ def excluir_parceiro(id_parceiro):
     except Exception as e:
         _logger.error(f"excluir_parceiro: {e}")
         raise
+
+
+def buscar_parceiro_por_cnpj(cnpj_digits):
+    try:
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, nome FROM parceiros "
+            "WHERE REPLACE(REPLACE(REPLACE(cnpj,'.',''),'/',''),'-','') = ?",
+            (cnpj_digits,)
+        )
+        return cursor.fetchone()
+    except Exception:
+        return None
+    finally:
+        conn.close()

@@ -6,9 +6,9 @@ Aplicativo desktop Windows para gerenciar parceiros comerciais — seguradoras e
 
 ## Funcionalidades
 
-- **Cadastro completo** de parceiros com Razão Social, Nome Fantasia, CNPJ, Telefone, Cidade, Email, CEP, Inscrição Estadual, Responsável e Observações
-- **Preenchimento automático via Receita Federal** — digite o CNPJ e os campos são preenchidos automaticamente consultando a base pública da Receita Federal
-- **Máscara inteligente** — CNPJ e telefone formatam sozinhos enquanto você digita
+- **Cadastro completo** de parceiros com Razão Social, Nome Fantasia, CNPJ, Telefone, Cidade, Email, CEP, Rua, Número, Bairro, Complemento, Inscrição Estadual, Responsável e Observações
+- **Preenchimento automático via Receita Federal** — digite o CNPJ e todos os campos (incluindo endereço completo) são preenchidos automaticamente consultando a base pública da Receita Federal
+- **Máscara inteligente** — CNPJ, telefone e CEP formatam sozinhos enquanto você digita
 - **Busca em tempo real** com filtros Ativos / Inativos / Todos
 - **Edição inline** diretamente na tabela com salvamento em lote
 - **Arquivamento** de parceiros inativos (sem exclusão permanente)
@@ -47,7 +47,7 @@ version.py       ← controle de versão
 
 core/
   database.py    ← operações SQLite
-  validators.py  ← validação e formatação de CNPJ, email, telefone
+  validators.py  ← validação e formatação de CNPJ, email, telefone, CEP
   updater.py     ← verificação e aplicação de atualizações via GitHub
 
 ui/

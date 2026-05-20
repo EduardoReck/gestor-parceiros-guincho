@@ -10,16 +10,17 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QComboBox,
     QLabel,
+    QApplication,
 )
 import os
 import csv
 import re
-import subprocess
 from datetime import date
 
 from ui.form_parceiro import FormParceiro
 from ui.form_edicao import FormEdicao
 from ui.documentos_parceiro import DocumentosParceiro
+from ui.theme import THEMES, load_theme, save_theme
 from core.database import (
     listar_parceiros, buscar_parceiros,
     arquivar_parceiro, atualizar_parceiros_batch,
@@ -28,7 +29,8 @@ from core.validators import formatar_cnpj
 
 COLUNAS = [
     "ID", "Nome", "Nome Fantasia", "CNPJ", "Telefone",
-    "Cidade", "Email", "CEP", "IE", "Responsável", "Observações"
+    "Cidade", "Email", "CEP", "Rua", "Número", "Bairro", "Complemento",
+    "IE", "Responsável", "Observações"
 ]
 
 _FILTRO_MAP = [1, None, 0]
@@ -54,42 +56,52 @@ class JanelaPrincipal(QMainWindow):
         self.combo_filtro.addItems(["Ativos", "Todos", "Inativos"])
         self.combo_filtro.currentIndexChanged.connect(self.filtrar_parceiros)
         layout_busca.addWidget(self.combo_filtro)
+        self._tema_atual = load_theme()
+        self.botao_tema = QPushButton("☀️ Claro" if self._tema_atual == "dark" else "🌙 Escuro")
+        self.botao_tema.setObjectName("botao_tema")
+        self.botao_tema.setFixedWidth(110)
+        self.botao_tema.clicked.connect(self._alternar_tema)
+        layout_busca.addWidget(self.botao_tema)
         layout.addLayout(layout_busca)
 
         layout_botoes = QHBoxLayout()
 
         self.botao_novo = QPushButton("Adicionar (F1)")
+        self.botao_novo.setObjectName("botao_novo")
         self.botao_novo.clicked.connect(self.abrir_form)
         self.botao_novo.setShortcut("F1")
         layout_botoes.addWidget(self.botao_novo)
 
-        self.botao_editar = QPushButton("Editar (F6)")
+        self.botao_editar = QPushButton("Editar (F2)")
         self.botao_editar.clicked.connect(self.editar_parceiro)
-        self.botao_editar.setShortcut("F6")
+        self.botao_editar.setShortcut("F2")
         layout_botoes.addWidget(self.botao_editar)
 
-        self.botao_atualizar = QPushButton("Atualizar lista (F2)")
+        self.botao_atualizar = QPushButton("Atualizar (F3)")
         self.botao_atualizar.clicked.connect(self.filtrar_parceiros)
-        self.botao_atualizar.setShortcut("F2")
+        self.botao_atualizar.setShortcut("F3")
         layout_botoes.addWidget(self.botao_atualizar)
 
-        self.botao_arquivar = QPushButton("Arquivar (F3)")
+        self.botao_arquivar = QPushButton("Arquivar (F4)")
+        self.botao_arquivar.setObjectName("botao_arquivar")
         self.botao_arquivar.clicked.connect(self.arquivar_parceiro)
-        self.botao_arquivar.setShortcut("F3")
+        self.botao_arquivar.setShortcut("F4")
         layout_botoes.addWidget(self.botao_arquivar)
 
-        self.botao_docs = QPushButton("Documentos (F4)")
+        self.botao_docs = QPushButton("Documentos (F5)")
         self.botao_docs.clicked.connect(self.abrir_documentos)
-        self.botao_docs.setShortcut("F4")
+        self.botao_docs.setShortcut("F5")
         layout_botoes.addWidget(self.botao_docs)
 
-        self.botao_salvar = QPushButton("Salvar alterações (F5)")
+        self.botao_salvar = QPushButton("Salvar (F6)")
         self.botao_salvar.clicked.connect(self.salvar_alteracoes)
-        self.botao_salvar.setShortcut("F5")
+        self.botao_salvar.setShortcut("F6")
         layout_botoes.addWidget(self.botao_salvar)
 
-        self.botao_exportar = QPushButton("Exportar CSV")
+        self.botao_exportar = QPushButton("Exportar CSV (F7)")
+        self.botao_exportar.setObjectName("botao_exportar")
         self.botao_exportar.clicked.connect(self.exportar_csv)
+        self.botao_exportar.setShortcut("F7")
         layout_botoes.addWidget(self.botao_exportar)
 
         layout.addLayout(layout_botoes)
@@ -99,6 +111,9 @@ class JanelaPrincipal(QMainWindow):
         self.tabela.setHorizontalHeaderLabels(COLUNAS)
         self.tabela.resizeColumnsToContents()
         self.tabela.setSortingEnabled(True)
+        self.tabela.setAlternatingRowColors(True)
+        self.tabela.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabela.verticalHeader().setVisible(False)
         self.tabela.doubleClicked.connect(self.editar_parceiro)
         layout.addWidget(self.tabela)
 
@@ -110,6 +125,12 @@ class JanelaPrincipal(QMainWindow):
 
     def _get_filtro_ativo(self):
         return _FILTRO_MAP[self.combo_filtro.currentIndex()]
+
+    def _alternar_tema(self):
+        self._tema_atual = "dark" if self._tema_atual == "light" else "light"
+        QApplication.instance().setStyleSheet(THEMES[self._tema_atual])
+        self.botao_tema.setText("☀️ Claro" if self._tema_atual == "dark" else "🌙 Escuro")
+        save_theme(self._tema_atual)
 
     def _preencher_tabela(self, parceiros):
         self.tabela.setSortingEnabled(False)
@@ -177,10 +198,10 @@ class JanelaPrincipal(QMainWindow):
         linha = self.tabela.currentRow()
         if linha == -1:
             return
-        parceiro_id = self.tabela.item(linha, 0).text()
-        pasta = os.path.join("documentos", f"parceiro_{parceiro_id}")
-        os.makedirs(pasta, exist_ok=True)
-        subprocess.Popen(f'explorer "{pasta}"')
+        parceiro_id = int(self.tabela.item(linha, 0).text())
+        item_nome = self.tabela.item(linha, 1)
+        nome = item_nome.text() if item_nome else str(parceiro_id)
+        DocumentosParceiro(parceiro_id, nome).exec()
 
     def salvar_alteracoes(self):
         def cel(linha, col):
@@ -193,8 +214,9 @@ class JanelaPrincipal(QMainWindow):
                 id_parceiro = int(cel(linha, 0))
                 atualizacoes.append((
                     cel(linha, 1), cel(linha, 2), cel(linha, 3), cel(linha, 4),
-                    cel(linha, 5), cel(linha, 6), cel(linha, 7), cel(linha, 8),
-                    cel(linha, 9), cel(linha, 10), id_parceiro,
+                    cel(linha, 5), cel(linha, 6), cel(linha, 7),
+                    cel(linha, 8), cel(linha, 9), cel(linha, 10), cel(linha, 11),
+                    cel(linha, 12), cel(linha, 13), cel(linha, 14), id_parceiro,
                 ))
             except ValueError:
                 pass
