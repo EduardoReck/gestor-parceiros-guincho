@@ -3,10 +3,10 @@ import os
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from database import inicializar_banco
-from interface import JanelaPrincipal
+from core.database import inicializar_banco
+from ui.interface import JanelaPrincipal
 from version import VERSION
-from updater import verificar_atualizacao, baixar_e_aplicar_update
+from core.updater import verificar_atualizacao, baixar_e_aplicar_update
 
 
 def main():

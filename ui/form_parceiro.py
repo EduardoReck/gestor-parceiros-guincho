@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QMessageBox
 
-from database import adicionar_parceiro
-from form_base import FormParceiroBase
+from core.database import adicionar_parceiro
+from ui.form_base import FormParceiroBase
 
 
 class FormParceiro(FormParceiroBase):

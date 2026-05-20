@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from validators import validar_cnpj, validar_email, validar_telefone
+from core.validators import validar_cnpj, validar_email, validar_telefone
 
 
 class FormParceiroBase(QDialog):

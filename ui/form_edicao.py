@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QMessageBox
 
-from database import atualizar_parceiro, buscar_parceiro_por_id
-from form_base import FormParceiroBase
+from core.database import atualizar_parceiro, buscar_parceiro_por_id
+from ui.form_base import FormParceiroBase
 
 
 class FormEdicao(FormParceiroBase):

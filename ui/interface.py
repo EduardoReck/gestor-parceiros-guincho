@@ -16,9 +16,10 @@ import csv
 import subprocess
 from datetime import date
 
-from form_parceiro import FormParceiro
-from form_edicao import FormEdicao
-from database import (
+from ui.form_parceiro import FormParceiro
+from ui.form_edicao import FormEdicao
+from ui.documentos_parceiro import DocumentosParceiro
+from core.database import (
     listar_parceiros, buscar_parceiros,
     arquivar_parceiro, atualizar_parceiros_batch,
 )
@@ -28,7 +29,6 @@ COLUNAS = [
     "Cidade", "Email", "CEP", "IE", "Responsável", "Observações"
 ]
 
-# Mapeia índice do combo (Ativos/Todos/Inativos) para valor do campo ativo
 _FILTRO_MAP = [1, None, 0]
 
 
