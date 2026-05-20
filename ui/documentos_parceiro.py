@@ -39,7 +39,7 @@ class DocumentosParceiro(QDialog):
         self.botao_abrir.clicked.connect(self.abrir_arquivo)
         self.botao_excluir.clicked.connect(self.excluir_arquivo)
 
-        self.pasta = os.path.join("arquivos", f"parceiro_{id_parceiro}")
+        self.pasta = os.path.join("documentos", f"parceiro_{id_parceiro}")
 
         os.makedirs(self.pasta, exist_ok=True)
 

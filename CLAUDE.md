@@ -86,7 +86,7 @@ The `parceiros` table has an `ativo` column (1=active, 0=archived). All read fun
 
 ### Document storage
 
-`ui/documentos_parceiro.py` (dialog, not used inline in the main window) stores files under `arquivos/parceiro_{id}/`. The "Documentos (F4)" button in the main window opens Windows Explorer at `documentos/parceiro_{id}/` — these are **two different directories**. This inconsistency is a known issue.
+`ui/documentos_parceiro.py` (dialog) and the "Documentos (F4)" button in the main window both store and open files under `documentos/parceiro_{id}/`. This directory is created at startup by `main.py`.
 
 ### Files to ignore
 
