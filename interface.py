@@ -5,18 +5,32 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QInputDialog,
     QMessageBox,
     QLineEdit,
-    QPushButton,
-    QHBoxLayout
+    QHBoxLayout,
+    QComboBox,
+    QLabel,
 )
 import os
+import csv
 import subprocess
+from datetime import date
 
 from form_parceiro import FormParceiro
-from database import adicionar_parceiro, listar_parceiros, buscar_parceiros, excluir_parceiro, conectar
-from documentos_parceiro import DocumentosParceiro
+from form_edicao import FormEdicao
+from database import (
+    listar_parceiros, buscar_parceiros,
+    arquivar_parceiro, atualizar_parceiros_batch,
+)
+
+COLUNAS = [
+    "ID", "Nome", "Nome Fantasia", "CNPJ", "Telefone",
+    "Cidade", "Email", "CEP", "IE", "Responsável", "Observações"
+]
+
+# Mapeia índice do combo (Ativos/Todos/Inativos) para valor do campo ativo
+_FILTRO_MAP = [1, None, 0]
+
 
 class JanelaPrincipal(QMainWindow):
 
@@ -24,201 +38,179 @@ class JanelaPrincipal(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Gestor de Parceiros")
-        self.resize(800, 500)
+        self.resize(1200, 550)
 
         layout = QVBoxLayout()
 
-        # Layout dos botões
-        layout_botoes = QHBoxLayout()
-
-        # Campo de busca
+        layout_busca = QHBoxLayout()
         self.campo_busca = QLineEdit()
         self.campo_busca.setPlaceholderText("Buscar parceiro...")
         self.campo_busca.textChanged.connect(self.filtrar_parceiros)
+        layout_busca.addWidget(self.campo_busca)
+        layout_busca.addWidget(QLabel("Mostrar:"))
+        self.combo_filtro = QComboBox()
+        self.combo_filtro.addItems(["Ativos", "Todos", "Inativos"])
+        self.combo_filtro.currentIndexChanged.connect(self.filtrar_parceiros)
+        layout_busca.addWidget(self.combo_filtro)
+        layout.addLayout(layout_busca)
 
-        layout_botoes.addWidget(self.campo_busca)
+        layout_botoes = QHBoxLayout()
 
-        # Botão adicionar
-        self.botao_novo = QPushButton("Adicionar parceiro (F1)")
+        self.botao_novo = QPushButton("Adicionar (F1)")
         self.botao_novo.clicked.connect(self.abrir_form)
         self.botao_novo.setShortcut("F1")
-
         layout_botoes.addWidget(self.botao_novo)
 
-        # Botão atualizar
-        self.botao_atualizar = QPushButton("Atualizar lista (F2)")
-        self.botao_atualizar.clicked.connect(self.carregar_parceiros)
-        self.botao_atualizar.setShortcut("F2")
+        self.botao_editar = QPushButton("Editar (F6)")
+        self.botao_editar.clicked.connect(self.editar_parceiro)
+        self.botao_editar.setShortcut("F6")
+        layout_botoes.addWidget(self.botao_editar)
 
+        self.botao_atualizar = QPushButton("Atualizar lista (F2)")
+        self.botao_atualizar.clicked.connect(self.filtrar_parceiros)
+        self.botao_atualizar.setShortcut("F2")
         layout_botoes.addWidget(self.botao_atualizar)
 
-        # Botão excluir
-        self.botao_excluir = QPushButton("Excluir parceiro (F3)")
-        self.botao_excluir.clicked.connect(self.excluir_parceiro)
-        self.botao_excluir.setShortcut("F3")
+        self.botao_arquivar = QPushButton("Arquivar (F3)")
+        self.botao_arquivar.clicked.connect(self.arquivar_parceiro)
+        self.botao_arquivar.setShortcut("F3")
+        layout_botoes.addWidget(self.botao_arquivar)
 
-        layout_botoes.addWidget(self.botao_excluir)
-
-        # Botão documentos
-        self.botao_docs = QPushButton("Documentos do parceiro (F4)")
+        self.botao_docs = QPushButton("Documentos (F4)")
         self.botao_docs.clicked.connect(self.abrir_documentos)
         self.botao_docs.setShortcut("F4")
-
         layout_botoes.addWidget(self.botao_docs)
 
-        # Botão salvar
         self.botao_salvar = QPushButton("Salvar alterações (F5)")
         self.botao_salvar.clicked.connect(self.salvar_alteracoes)
         self.botao_salvar.setShortcut("F5")
-
         layout_botoes.addWidget(self.botao_salvar)
 
-        # adiciona linha de botões ao layout principal
+        self.botao_exportar = QPushButton("Exportar CSV")
+        self.botao_exportar.clicked.connect(self.exportar_csv)
+        layout_botoes.addWidget(self.botao_exportar)
+
         layout.addLayout(layout_botoes)
 
-        # =====================
-        # TABELA
-        # =====================
-
         self.tabela = QTableWidget()
-        self.tabela.setColumnCount(8)
-        self.tabela.setHorizontalHeaderLabels([
-            "ID",
-            "Nome",
-            "Nome Fantasia",
-            "CNPJ",
-            "Telefone",
-            "Cidade",
-            "Email",
-            "CEP"
-        ])
-
+        self.tabela.setColumnCount(len(COLUNAS))
+        self.tabela.setHorizontalHeaderLabels(COLUNAS)
         self.tabela.resizeColumnsToContents()
         self.tabela.setSortingEnabled(True)
+        self.tabela.doubleClicked.connect(self.editar_parceiro)
         layout.addWidget(self.tabela)
 
         container = QWidget()
         container.setLayout(layout)
-
         self.setCentralWidget(container)
 
-        self.carregar_parceiros()
+        self.filtrar_parceiros()
 
-    def carregar_parceiros(self):
+    def _get_filtro_ativo(self):
+        return _FILTRO_MAP[self.combo_filtro.currentIndex()]
 
-        parceiros = listar_parceiros()
-
+    def _preencher_tabela(self, parceiros):
+        self.tabela.setSortingEnabled(False)
         self.tabela.setRowCount(len(parceiros))
-
         for linha, parceiro in enumerate(parceiros):
-
             for coluna, valor in enumerate(parceiro):
-
                 self.tabela.setItem(
-                    linha,
-                    coluna,
-                    QTableWidgetItem(str(valor))
+                    linha, coluna,
+                    QTableWidgetItem(str(valor) if valor is not None else "")
                 )
-
-    def abrir_form(self):
-
-        form = FormParceiro()
-    
-        if form.exec():
-
-            self.carregar_parceiros()
-        
+        self.tabela.setSortingEnabled(True)
 
     def filtrar_parceiros(self):
-
         texto = self.campo_busca.text()
-
-        if texto == "":
-            parceiros = listar_parceiros()
+        filtro_ativo = self._get_filtro_ativo()
+        if texto:
+            parceiros = buscar_parceiros(texto, filtro_ativo)
         else:
-            parceiros = buscar_parceiros(texto)
+            parceiros = listar_parceiros(filtro_ativo)
+        self._preencher_tabela(parceiros)
 
-        self.tabela.setRowCount(len(parceiros))
+    def abrir_form(self):
+        if FormParceiro().exec():
+            self.filtrar_parceiros()
 
-        for linha, parceiro in enumerate(parceiros):
-            for coluna, valor in enumerate(parceiro):
-                self.tabela.setItem(
-                    linha,
-                    coluna,
-                    QTableWidgetItem(str(valor))
-                )   
-
-    def excluir_parceiro(self):
-
-        id_parceiro, ok = QInputDialog.getInt(
-            self,
-            "Excluir parceiro",
-            "Digite o ID do parceiro que deseja excluir:"
-        )
-
-        if not ok:
+    def editar_parceiro(self):
+        linha = self.tabela.currentRow()
+        if linha == -1:
+            QMessageBox.information(self, "Selecione um parceiro", "Clique em uma linha da tabela para selecionar.")
             return
+        item = self.tabela.item(linha, 0)
+        if item is None:
+            return
+        if FormEdicao(int(item.text())).exec():
+            self.filtrar_parceiros()
 
-        confirmacao = QMessageBox.question(
+    def arquivar_parceiro(self):
+        linha = self.tabela.currentRow()
+        if linha == -1:
+            QMessageBox.information(self, "Selecione um parceiro", "Clique em uma linha da tabela para selecionar.")
+            return
+        item_id = self.tabela.item(linha, 0)
+        item_nome = self.tabela.item(linha, 1)
+        if item_id is None:
+            return
+        parceiro_id = int(item_id.text())
+        nome = item_nome.text() if item_nome else str(parceiro_id)
+        resp = QMessageBox.question(
             self,
-            "Confirmar exclusão",
-            f"Tem certeza que deseja excluir o parceiro ID {id_parceiro}?",
+            "Arquivar parceiro",
+            f"Arquivar o parceiro '{nome}'?\nEle ficará visível em 'Inativos'.",
             QMessageBox.Yes | QMessageBox.No
         )
-
-        if confirmacao == QMessageBox.Yes:
-
-            excluir_parceiro(id_parceiro)
-
-            QMessageBox.information(
-                self,
-                "Sucesso",
-                "Parceiro excluído."
-            )
-
-            self.carregar_parceiros()
+        if resp == QMessageBox.Yes:
+            try:
+                arquivar_parceiro(parceiro_id)
+                self.filtrar_parceiros()
+            except Exception:
+                QMessageBox.critical(self, "Erro", "Não foi possível arquivar o parceiro.")
 
     def abrir_documentos(self):
-
         linha = self.tabela.currentRow()
-
         if linha == -1:
             return
-
         parceiro_id = self.tabela.item(linha, 0).text()
-
         pasta = os.path.join("documentos", f"parceiro_{parceiro_id}")
-
         os.makedirs(pasta, exist_ok=True)
-
         subprocess.Popen(f'explorer "{pasta}"')
 
     def salvar_alteracoes(self):
+        def cel(linha, col):
+            item = self.tabela.item(linha, col)
+            return item.text() if item else ""
 
-        conn = conectar()
-        cursor = conn.cursor()
+        atualizacoes = []
+        for linha in range(self.tabela.rowCount()):
+            try:
+                id_parceiro = int(cel(linha, 0))
+                atualizacoes.append((
+                    cel(linha, 1), cel(linha, 2), cel(linha, 3), cel(linha, 4),
+                    cel(linha, 5), cel(linha, 6), cel(linha, 7), cel(linha, 8),
+                    cel(linha, 9), cel(linha, 10), id_parceiro,
+                ))
+            except ValueError:
+                pass
 
-        linhas = self.tabela.rowCount()
+        try:
+            atualizar_parceiros_batch(atualizacoes)
+            QMessageBox.information(self, "Sucesso", "Alterações salvas no banco.")
+        except Exception:
+            QMessageBox.warning(self, "Erro", "Não foi possível salvar as alterações.")
 
-        for linha in range(linhas):
-
-            id_parceiro = int(self.tabela.item(linha, 0).text())
-            nome = self.tabela.item(linha, 1).text()
-            nome_fantasia = self.tabela.item(linha, 2).text()
-            cnpj = self.tabela.item(linha, 3).text()
-            telefone = self.tabela.item(linha, 4).text()
-            cidade = self.tabela.item(linha, 5).text()
-            email = self.tabela.item(linha, 6).text()
-            cep = self.tabela.item(linha, 7).text()
-
-            cursor.execute("""
-            UPDATE parceiros
-            SET nome=?, nome_fantasia=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?
-            WHERE id=?
-            """, (nome, nome_fantasia, cnpj, telefone, cidade, email, cep, id_parceiro))
-
-        conn.commit()
-        conn.close()
-
-        QMessageBox.information(self, "Sucesso", "Alterações salvas no banco.")
- 
+    def exportar_csv(self):
+        filtro_ativo = self._get_filtro_ativo()
+        parceiros = listar_parceiros(filtro_ativo)
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        nome_arquivo = f"parceiros_{date.today().isoformat()}.csv"
+        caminho = os.path.join(desktop, nome_arquivo)
+        try:
+            with open(caminho, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(f, delimiter=";")
+                writer.writerow(COLUNAS)
+                writer.writerows(parceiros)
+            QMessageBox.information(self, "Exportação concluída", f"Arquivo salvo em:\n{caminho}")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro na exportação", f"Não foi possível exportar:\n{e}")
