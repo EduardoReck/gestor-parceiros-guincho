@@ -17,6 +17,11 @@ pyinstaller GestorParceiros.spec
 # Output: dist\GestorParceiros.exe
 ```
 
+**Publish a new release (requires `gh` CLI authenticated):**
+```bash
+gh release create vX.Y.Z "dist/GestorParceiros.exe" --title "Versão X.Y.Z" --notes "..."
+```
+
 There is no test suite and no linter configured.
 
 ## Architecture
@@ -58,9 +63,7 @@ The `parceiros` table has an `ativo` column (1=active, 0=archived). All read fun
 
 ### Auto-update (`updater.py`)
 
-`verificar_atualizacao()` is a no-op in dev (`sys.frozen` is False). In the compiled exe it hits the GitHub Releases API, compares semantic versions, and returns the `.exe` asset download URL if a newer release exists. `baixar_e_aplicar_update()` downloads the new exe alongside the current one, then writes and launches `_update.bat` which replaces the file and restarts the app after a 2-second delay.
-
-**Before building a release**, update `GITHUB_API_URL` in `updater.py` to point to the real repository, and bump `VERSION` in `version.py`.
+`verificar_atualizacao()` is a no-op in dev (`sys.frozen` is False). In the compiled exe it hits the GitHub Releases API at `https://api.github.com/repos/EduardoReck/gestor-parceiros-guincho/releases/latest`, compares semantic versions, and returns the `.exe` asset download URL if a newer release exists. `baixar_e_aplicar_update()` downloads the new exe alongside the current one, then writes and launches `_update.bat` which replaces the file and restarts the app after a 2-second delay.
 
 ### Document storage
 
@@ -72,7 +75,28 @@ The `parceiros` table has an `ativo` column (1=active, 0=archived). All read fun
 
 ## Release workflow
 
-1. Update `VERSION` in [version.py](version.py)
-2. Update `GITHUB_API_URL` in [updater.py](updater.py) if not already pointing to the real repo
-3. Build: `pyinstaller GestorParceiros.spec`
-4. On GitHub: create a new Release with tag `vX.Y.Z`, attach `dist\GestorParceiros.exe` as an asset
+**GitHub repository:** https://github.com/EduardoReck/gestor-parceiros-guincho
+
+**Current version:** `1.0.0` — release `v1.0.0` already published.
+
+To ship a new version:
+
+1. Update `VERSION` in [version.py](version.py) (e.g. `"1.1.0"`)
+2. Commit and push:
+   ```bash
+   git add .
+   git commit -m "..."
+   git push
+   ```
+3. Build the exe:
+   ```bash
+   pyinstaller GestorParceiros.spec
+   ```
+4. Publish the release (`gh` CLI must be authenticated via `gh auth login`):
+   ```bash
+   gh release create v1.1.0 "dist/GestorParceiros.exe" --title "Versão 1.1.0" --notes "..."
+   ```
+
+Users running the previous `.exe` will be prompted to update automatically on next launch.
+
+**Installing on a new machine:** download `GestorParceiros.exe` from the latest release — no Python or dependencies needed.
