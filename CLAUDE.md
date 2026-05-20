@@ -70,7 +70,9 @@ The `parceiros` table has an `ativo` column (1=active, 0=archived). All read fun
 
 ### UI layer (`ui/interface.py`)
 
-`JanelaPrincipal` is the main window. The table has 15 columns in this order: `ID, Nome, Nome Fantasia, CNPJ, Telefone, Cidade, Email, CEP, Rua, Número, Bairro, Complemento, IE, Responsável, Observações`. Column 0 (ID) is the key used to open `FormEdicao` and to archive records. `_FILTRO_MAP = [1, None, 0]` maps the combo-box index to the `filtro_ativo` value.
+`JanelaPrincipal` is the main window. The table has 13 columns: `ID` (hidden, col 0), `Nome Fantasia, Nome, CNPJ, Telefone, Cidade, Email, CEP, Rua, Número, Bairro, Complemento, Observações`. Column 0 (ID) is hidden via `setColumnHidden(0, True)` but still used internally to open `FormEdicao`, archive, and delete records. `_FILTRO_MAP = [1, None, 0]` maps the combo-box index to the `filtro_ativo` value.
+
+**The F4 button is dynamic:** shows "Arquivar" when filter is Ativos/Todos, and "Desarquivar" when filter is Inativos. A "Excluir (Del)" button is only enabled in the Inativos view — it saves a JSON backup to `lixeira/` before permanently deleting.
 
 **Two save paths exist:**
 - `FormEdicao.salvar()` — saves a single record with validation (preferred)
@@ -78,9 +80,9 @@ The `parceiros` table has an `ativo` column (1=active, 0=archived). All read fun
 
 ### Form inheritance (`ui/form_base.py`)
 
-`FormParceiroBase` owns all 14 field widgets, the shared validation logic (`_validar()`), and field collection (`_coletar_dados()`). Subclasses override `_cnpj_label()` and `_botao_label()` and implement `salvar()`. The template-method pattern means `_cnpj_label()` called inside `__init__` resolves to the subclass version via Python MRO.
+`FormParceiroBase` owns 12 field widgets, the shared validation logic (`_validar()`), and field collection (`_coletar_dados()`). Subclasses override `_cnpj_label()` and `_botao_label()` and implement `salvar()`. The template-method pattern means `_cnpj_label()` called inside `__init__` resolves to the subclass version via Python MRO.
 
-Fields: nome, nome_fantasia, cnpj, telefone, cidade, email, cep, rua, numero, bairro, complemento, inscricao_estadual, responsavel, observacoes. Live formatting via `textEdited` + `blockSignals` applies to cnpj, telefone, and cep. `editingFinished` on cnpj triggers BrasilAPI lookup which fills all address fields automatically.
+Fields (in `_coletar_dados` order): nome_fantasia, nome, cnpj, telefone, cidade, email, cep, rua, numero, bairro, complemento, observacoes. `inscricao_estadual` and `responsavel` columns still exist in the DB but are no longer used in SELECT/INSERT/UPDATE. Live formatting via `textEdited` + `blockSignals` applies to cnpj, telefone, and cep. `editingFinished` on cnpj triggers BrasilAPI lookup which fills all address fields automatically.
 
 ### Auto-update (`core/updater.py`)
 
@@ -98,7 +100,7 @@ Fields: nome, nome_fantasia, cnpj, telefone, cidade, email, cep, rua, numero, ba
 
 **GitHub repository:** https://github.com/EduardoReck/gestor-parceiros-guincho
 
-**Current version:** `1.2.0` — release `v1.2.0` already published.
+**Current version:** `1.2.2` — release `v1.2.2` already published.
 
 To ship a new version:
 
@@ -115,7 +117,7 @@ To ship a new version:
    ```
 4. Publish the release (`gh` CLI must be authenticated via `gh auth login`):
    ```bash
-   gh release create v1.2.0 "dist/GestorParceiros.exe" --title "Versão 1.2.0" --notes "..."
+   gh release create v1.2.2 "dist/GestorParceiros.exe" --title "Versão 1.2.2" --notes "..."
    ```
 
 Users running the previous `.exe` will be prompted to update automatically on next launch.

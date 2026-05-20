@@ -1,13 +1,16 @@
 import sqlite3
 import os
+import json
+import re
+import shutil
 import logging
+from datetime import datetime
 
 DB_PATH = os.path.join("data", "database.db")
 
 _SELECT_COLS = """
-    id, nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
-    rua, numero, bairro, complemento,
-    inscricao_estadual, responsavel, observacoes
+    id, nome_fantasia, nome, cnpj, telefone, cidade, email, cep,
+    rua, numero, bairro, complemento, observacoes
 """
 
 _logger = logging.getLogger(__name__)
@@ -94,13 +97,12 @@ def buscar_parceiros(texto, filtro_ativo=1):
         query = f"""
         SELECT {_SELECT_COLS} FROM parceiros
         WHERE (
-            nome LIKE ? OR nome_fantasia LIKE ? OR cnpj LIKE ?
+            nome_fantasia LIKE ? OR nome LIKE ? OR cnpj LIKE ?
             OR telefone LIKE ? OR cidade LIKE ? OR email LIKE ?
             OR cep LIKE ? OR rua LIKE ? OR bairro LIKE ?
-            OR inscricao_estadual LIKE ? OR responsavel LIKE ?
         )
         """
-        params = [texto_like] * 11
+        params = [texto_like] * 9
 
         if filtro_ativo is not None:
             query += " AND ativo = ?"
@@ -131,21 +133,18 @@ def buscar_parceiro_por_id(id_parceiro):
         return None
 
 
-def adicionar_parceiro(nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
-                       rua='', numero='', bairro='', complemento='',
-                       inscricao_estadual='', responsavel='', observacoes=''):
+def adicionar_parceiro(nome_fantasia, nome, cnpj, telefone, cidade, email, cep,
+                       rua='', numero='', bairro='', complemento='', observacoes=''):
     try:
         conn = conectar()
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO parceiros
-            (nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
-             rua, numero, bairro, complemento,
-             inscricao_estadual, responsavel, observacoes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
-              rua, numero, bairro, complemento,
-              inscricao_estadual, responsavel, observacoes))
+            (nome_fantasia, nome, cnpj, telefone, cidade, email, cep,
+             rua, numero, bairro, complemento, observacoes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (nome_fantasia, nome, cnpj, telefone, cidade, email, cep,
+              rua, numero, bairro, complemento, observacoes))
         parceiro_id = cursor.lastrowid
         conn.commit()
         conn.close()
@@ -155,21 +154,18 @@ def adicionar_parceiro(nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
         return None
 
 
-def atualizar_parceiro(id_parceiro, nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
-                       rua='', numero='', bairro='', complemento='',
-                       inscricao_estadual='', responsavel='', observacoes=''):
+def atualizar_parceiro(id_parceiro, nome_fantasia, nome, cnpj, telefone, cidade, email, cep,
+                       rua='', numero='', bairro='', complemento='', observacoes=''):
     try:
         conn = conectar()
         cursor = conn.cursor()
         cursor.execute("""
         UPDATE parceiros
-        SET nome=?, nome_fantasia=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?,
-            rua=?, numero=?, bairro=?, complemento=?,
-            inscricao_estadual=?, responsavel=?, observacoes=?
+        SET nome_fantasia=?, nome=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?,
+            rua=?, numero=?, bairro=?, complemento=?, observacoes=?
         WHERE id=?
-        """, (nome, nome_fantasia, cnpj, telefone, cidade, email, cep,
-              rua, numero, bairro, complemento,
-              inscricao_estadual, responsavel, observacoes, id_parceiro))
+        """, (nome_fantasia, nome, cnpj, telefone, cidade, email, cep,
+              rua, numero, bairro, complemento, observacoes, id_parceiro))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -178,7 +174,7 @@ def atualizar_parceiro(id_parceiro, nome, nome_fantasia, cnpj, telefone, cidade,
 
 
 def atualizar_parceiros_batch(atualizacoes):
-    """atualizacoes: list of tuples (nome, …, observacoes, id) para executemany."""
+    """atualizacoes: list of tuples (nome_fantasia, nome, …, observacoes, id) para executemany."""
     if not atualizacoes:
         return
     try:
@@ -186,9 +182,8 @@ def atualizar_parceiros_batch(atualizacoes):
         cursor = conn.cursor()
         cursor.executemany("""
         UPDATE parceiros
-        SET nome=?, nome_fantasia=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?,
-            rua=?, numero=?, bairro=?, complemento=?,
-            inscricao_estadual=?, responsavel=?, observacoes=?
+        SET nome_fantasia=?, nome=?, cnpj=?, telefone=?, cidade=?, email=?, cep=?,
+            rua=?, numero=?, bairro=?, complemento=?, observacoes=?
         WHERE id=?
         """, atualizacoes)
         conn.commit()
@@ -210,11 +205,43 @@ def arquivar_parceiro(id_parceiro):
         raise
 
 
+def desarquivar_parceiro(id_parceiro):
+    try:
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE parceiros SET ativo=1 WHERE id=?", (id_parceiro,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        _logger.error(f"desarquivar_parceiro: {e}")
+        raise
+
+
 def excluir_parceiro(id_parceiro):
     try:
         conn = conectar()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM parceiros WHERE id = ?", (id_parceiro,))
+
+        cursor.execute("SELECT * FROM parceiros WHERE id = ?", (id_parceiro,))
+        row = cursor.fetchone()
+        if row:
+            cols = [desc[0] for desc in cursor.description]
+            dados = dict(zip(cols, row))
+            dados["data_exclusao"] = datetime.now().isoformat()
+
+            os.makedirs("lixeira", exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            nome_safe = re.sub(r'[^\w]', '_', dados.get("nome") or "")[:30]
+            backup_path = os.path.join("lixeira", f"parceiro_{id_parceiro}_{nome_safe}_{ts}.json")
+            with open(backup_path, "w", encoding="utf-8") as f:
+                json.dump(dados, f, ensure_ascii=False, indent=2)
+
+            docs_dir = os.path.join("documentos", f"parceiro_{id_parceiro}")
+            if os.path.exists(docs_dir):
+                shutil.copytree(docs_dir, os.path.join("lixeira", f"docs_{id_parceiro}_{ts}"))
+
+            cursor.execute("DELETE FROM parceiros WHERE id = ?", (id_parceiro,))
+
         conn.commit()
         conn.close()
     except Exception as e:

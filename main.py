@@ -14,6 +14,7 @@ from core.updater import verificar_atualizacao, baixar_e_aplicar_update
 def main():
     os.makedirs("data", exist_ok=True)
     os.makedirs("documentos", exist_ok=True)
+    os.makedirs("lixeira", exist_ok=True)
     inicializar_banco()
 
     app = QApplication(sys.argv)

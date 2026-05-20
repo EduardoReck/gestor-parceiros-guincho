@@ -53,6 +53,8 @@ QPushButton#botao_arquivar     { background-color: #A06040; }
 QPushButton#botao_arquivar:hover { background-color: #8A5035; }
 QPushButton#botao_exportar     { background-color: #5C7A8A; }
 QPushButton#botao_exportar:hover { background-color: #4A6575; }
+QPushButton#botao_excluir     { background-color: #8B3A3A; }
+QPushButton#botao_excluir:hover { background-color: #742E2E; }
 QPushButton#botao_tema         { background-color: #6B7B8A; }
 QPushButton#botao_tema:hover   { background-color: #5A6A78; }
 QTableWidget {
@@ -108,6 +110,8 @@ QPushButton#botao_arquivar     { background-color: #B87050; }
 QPushButton#botao_arquivar:hover { background-color: #9A5E40; }
 QPushButton#botao_exportar     { background-color: #6B8A9A; }
 QPushButton#botao_exportar:hover { background-color: #5A7888; }
+QPushButton#botao_excluir     { background-color: #8B3A3A; }
+QPushButton#botao_excluir:hover { background-color: #742E2E; }
 QPushButton#botao_tema         { background-color: #7A8B9A; }
 QPushButton#botao_tema:hover   { background-color: #697888; }
 QTableWidget {

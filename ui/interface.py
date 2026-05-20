@@ -23,14 +23,16 @@ from ui.documentos_parceiro import DocumentosParceiro
 from ui.theme import THEMES, load_theme, save_theme
 from core.database import (
     listar_parceiros, buscar_parceiros,
-    arquivar_parceiro, atualizar_parceiros_batch,
+    arquivar_parceiro, desarquivar_parceiro, excluir_parceiro,
+    atualizar_parceiros_batch,
 )
 from core.validators import formatar_cnpj
 
 COLUNAS = [
-    "ID", "Nome", "Nome Fantasia", "CNPJ", "Telefone",
+    "ID",  # col 0, oculta
+    "Nome Fantasia", "Nome", "CNPJ", "Telefone",
     "Cidade", "Email", "CEP", "Rua", "Número", "Bairro", "Complemento",
-    "IE", "Responsável", "Observações"
+    "Observações"
 ]
 
 _FILTRO_MAP = [1, None, 0]
@@ -55,6 +57,7 @@ class JanelaPrincipal(QMainWindow):
         self.combo_filtro = QComboBox()
         self.combo_filtro.addItems(["Ativos", "Todos", "Inativos"])
         self.combo_filtro.currentIndexChanged.connect(self.filtrar_parceiros)
+        self.combo_filtro.currentIndexChanged.connect(self._atualizar_botoes_filtro)
         layout_busca.addWidget(self.combo_filtro)
         self._tema_atual = load_theme()
         self.botao_tema = QPushButton("☀️ Claro" if self._tema_atual == "dark" else "🌙 Escuro")
@@ -84,9 +87,16 @@ class JanelaPrincipal(QMainWindow):
 
         self.botao_arquivar = QPushButton("Arquivar (F4)")
         self.botao_arquivar.setObjectName("botao_arquivar")
-        self.botao_arquivar.clicked.connect(self.arquivar_parceiro)
+        self.botao_arquivar.clicked.connect(self._arquivar_ou_desarquivar)
         self.botao_arquivar.setShortcut("F4")
         layout_botoes.addWidget(self.botao_arquivar)
+
+        self.botao_excluir = QPushButton("Excluir (Del)")
+        self.botao_excluir.setObjectName("botao_excluir")
+        self.botao_excluir.clicked.connect(self.excluir_parceiro_ui)
+        self.botao_excluir.setShortcut("Delete")
+        self.botao_excluir.setEnabled(False)
+        layout_botoes.addWidget(self.botao_excluir)
 
         self.botao_docs = QPushButton("Documentos (F5)")
         self.botao_docs.clicked.connect(self.abrir_documentos)
@@ -122,6 +132,7 @@ class JanelaPrincipal(QMainWindow):
         self.setCentralWidget(container)
 
         self.filtrar_parceiros()
+        self.tabela.setColumnHidden(0, True)
 
     def _get_filtro_ativo(self):
         return _FILTRO_MAP[self.combo_filtro.currentIndex()]
@@ -170,7 +181,49 @@ class JanelaPrincipal(QMainWindow):
         if FormEdicao(int(item.text())).exec():
             self.filtrar_parceiros()
 
-    def arquivar_parceiro(self):
+    def _atualizar_botoes_filtro(self):
+        eh_inativos = self.combo_filtro.currentIndex() == 2
+        self.botao_arquivar.setText("Desarquivar (F4)" if eh_inativos else "Arquivar (F4)")
+        self.botao_excluir.setEnabled(eh_inativos)
+
+    def _arquivar_ou_desarquivar(self):
+        linha = self.tabela.currentRow()
+        if linha == -1:
+            QMessageBox.information(self, "Selecione um parceiro", "Clique em uma linha da tabela para selecionar.")
+            return
+        item_id = self.tabela.item(linha, 0)
+        item_nome = self.tabela.item(linha, 1)
+        if item_id is None:
+            return
+        parceiro_id = int(item_id.text())
+        nome = item_nome.text() if item_nome else str(parceiro_id)
+        eh_inativos = self.combo_filtro.currentIndex() == 2
+        if eh_inativos:
+            resp = QMessageBox.question(
+                self, "Desarquivar parceiro",
+                f"Desarquivar '{nome}'?\nEle voltará a aparecer em 'Ativos'.",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if resp == QMessageBox.Yes:
+                try:
+                    desarquivar_parceiro(parceiro_id)
+                    self.filtrar_parceiros()
+                except Exception:
+                    QMessageBox.critical(self, "Erro", "Não foi possível desarquivar o parceiro.")
+        else:
+            resp = QMessageBox.question(
+                self, "Arquivar parceiro",
+                f"Arquivar '{nome}'?\nEle ficará visível em 'Inativos'.",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if resp == QMessageBox.Yes:
+                try:
+                    arquivar_parceiro(parceiro_id)
+                    self.filtrar_parceiros()
+                except Exception:
+                    QMessageBox.critical(self, "Erro", "Não foi possível arquivar o parceiro.")
+
+    def excluir_parceiro_ui(self):
         linha = self.tabela.currentRow()
         if linha == -1:
             QMessageBox.information(self, "Selecione um parceiro", "Clique em uma linha da tabela para selecionar.")
@@ -183,16 +236,18 @@ class JanelaPrincipal(QMainWindow):
         nome = item_nome.text() if item_nome else str(parceiro_id)
         resp = QMessageBox.question(
             self,
-            "Arquivar parceiro",
-            f"Arquivar o parceiro '{nome}'?\nEle ficará visível em 'Inativos'.",
+            "Excluir parceiro permanentemente",
+            f"Excluir '{nome}' permanentemente?\n\n"
+            f"Os dados serão salvos em 'lixeira/' antes de serem removidos.\n"
+            f"Esta ação não pode ser desfeita.",
             QMessageBox.Yes | QMessageBox.No
         )
         if resp == QMessageBox.Yes:
             try:
-                arquivar_parceiro(parceiro_id)
+                excluir_parceiro(parceiro_id)
                 self.filtrar_parceiros()
             except Exception:
-                QMessageBox.critical(self, "Erro", "Não foi possível arquivar o parceiro.")
+                QMessageBox.critical(self, "Erro", "Não foi possível excluir o parceiro.")
 
     def abrir_documentos(self):
         linha = self.tabela.currentRow()
@@ -216,7 +271,7 @@ class JanelaPrincipal(QMainWindow):
                     cel(linha, 1), cel(linha, 2), cel(linha, 3), cel(linha, 4),
                     cel(linha, 5), cel(linha, 6), cel(linha, 7),
                     cel(linha, 8), cel(linha, 9), cel(linha, 10), cel(linha, 11),
-                    cel(linha, 12), cel(linha, 13), cel(linha, 14), id_parceiro,
+                    cel(linha, 12), id_parceiro,
                 ))
             except ValueError:
                 pass

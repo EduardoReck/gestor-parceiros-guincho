@@ -19,10 +19,10 @@ class FormEdicao(FormParceiroBase):
         parceiro = buscar_parceiro_por_id(self.parceiro_id)
         if not parceiro:
             return
-        _, nome, nome_fantasia, cnpj, telefone, cidade, email, cep, \
-            rua, numero, bairro, complemento, ie, responsavel, obs = parceiro
-        self.nome.setText(nome or "")
+        _, nome_fantasia, nome, cnpj, telefone, cidade, email, cep, \
+            rua, numero, bairro, complemento, obs = parceiro
         self.nome_fantasia.setText(nome_fantasia or "")
+        self.nome.setText(nome or "")
         self.cnpj.setText(cnpj or "")
         self.telefone.setText(telefone or "")
         self.cidade.setText(cidade or "")
@@ -32,8 +32,6 @@ class FormEdicao(FormParceiroBase):
         self.numero.setText(numero or "")
         self.bairro.setText(bairro or "")
         self.complemento.setText(complemento or "")
-        self.inscricao_estadual.setText(ie or "")
-        self.responsavel.setText(responsavel or "")
         self.observacoes.setText(obs or "")
 
     def salvar(self):

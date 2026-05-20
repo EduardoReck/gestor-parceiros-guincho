@@ -36,25 +36,21 @@ class FormParceiroBase(QDialog):
         self.bairro = QLineEdit()
         self.complemento = QLineEdit()
         self.complemento.setPlaceholderText("Apto, sala…")
-        self.inscricao_estadual = QLineEdit()
-        self.responsavel = QLineEdit()
         self.observacoes = QLineEdit()
 
         pares = [
-            ("Nome *",                self.nome),
-            ("Nome Fantasia",         self.nome_fantasia),
-            (self._cnpj_label(),      self.cnpj),
-            ("Telefone",              self.telefone),
-            ("CEP",                   self.cep),
-            ("Cidade",                self.cidade),
-            ("Rua",                   self.rua),
-            ("Número",                self.numero),
-            ("Bairro",                self.bairro),
-            ("Complemento",           self.complemento),
-            ("Email",                 self.email),
-            ("Inscrição Estadual",    self.inscricao_estadual),
-            ("Responsável",           self.responsavel),
-            ("Observações",           self.observacoes),
+            ("Nome *",           self.nome),
+            ("Nome Fantasia",    self.nome_fantasia),
+            (self._cnpj_label(), self.cnpj),
+            ("Telefone",         self.telefone),
+            ("CEP",              self.cep),
+            ("Cidade",           self.cidade),
+            ("Rua",              self.rua),
+            ("Número",           self.numero),
+            ("Bairro",           self.bairro),
+            ("Complemento",      self.complemento),
+            ("Email",            self.email),
+            ("Observações",      self.observacoes),
         ]
 
         grid = QGridLayout()
@@ -139,9 +135,6 @@ class FormParceiroBase(QDialog):
         self.numero.setText(dados.get("numero") or "")
         self.bairro.setText(dados.get("bairro") or "")
         self.complemento.setText(dados.get("complemento") or "")
-        qsa = dados.get("qsa") or []
-        if qsa:
-            self.responsavel.setText(qsa[0].get("nome_socio") or "")
 
     def _validar(self):
         nome = self.nome.text().strip()
@@ -183,8 +176,8 @@ class FormParceiroBase(QDialog):
 
     def _coletar_dados(self):
         return (
-            self.nome.text().strip(),
             self.nome_fantasia.text().strip(),
+            self.nome.text().strip(),
             self.cnpj.text().strip(),
             self.telefone.text().strip(),
             self.cidade.text().strip(),
@@ -194,8 +187,6 @@ class FormParceiroBase(QDialog):
             self.numero.text().strip(),
             self.bairro.text().strip(),
             self.complemento.text().strip(),
-            self.inscricao_estadual.text().strip(),
-            self.responsavel.text().strip(),
             self.observacoes.text().strip(),
         )
 
